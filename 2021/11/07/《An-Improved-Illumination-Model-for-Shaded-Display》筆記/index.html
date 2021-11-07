@@ -13,7 +13,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <meta name="format-detection" content="telphone=no, email=no" />
   
-    <meta name="keywords" content="Ray Tracing, 渲染, 論文" />
+    <meta name="keywords" content="Ray Tracing, 渲染" />
   
   <meta name="description" content="近期計劃讀一遍圖形學經典論文，大概是按照時間順序捋一遍渲染的發展路徑，第一篇就選擇了Whitted的這篇早期光追模型。爲了節約時間，我計劃讀早期的論文時只記錄算法原理，一些較新或者效果吸引我的論文將復現一遍效果。 算法原理Phong 光照模型早期圖形學發展過程中，最重要的渲染模型就是基於Lambert的Phong光照模型，它將一個點的光照分爲三個部分：  I&#x3D;I_{\alpha}+k_d\sum">
 <meta property="og:type" content="article">
@@ -24,10 +24,9 @@
 <meta property="og:locale">
 <meta property="og:image" content="https://deep-in-abyss.github.io/null">
 <meta property="article:published_time" content="2021-11-07T08:29:57.000Z">
-<meta property="article:modified_time" content="2021-11-07T15:17:15.953Z">
+<meta property="article:modified_time" content="2021-11-07T15:29:03.690Z">
 <meta property="article:author" content="羽川喵">
 <meta property="article:tag" content="渲染">
-<meta property="article:tag" content="論文">
 <meta property="article:tag" content="Ray Tracing">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://deep-in-abyss.github.io/null">
@@ -186,7 +185,7 @@
         </header>
         <div class="kratos-post-content">
             <div id="expire-alert" class="alert alert-warning hidden" role="alert">
-                本文最后编辑于 <time datetime="1636298235953"></time> 前，其中的内容可能需要更新。
+                本文最后编辑于 <time datetime="1636298943690"></time> 前，其中的内容可能需要更新。
             </div>
             
             <hr />
@@ -307,7 +306,7 @@ I=I_{\alpha}+k_d\sum_{j=1}^{j=ls}(\overline{N}\cdot\overline{L_j})+k_sS+k_tT</sc
             <div class="footer-tag clearfix">
                 <div class="pull-left">
                 <i class="fa fa-tags"></i>
-                    <a class="tag-none-link" href="/tags/Ray-Tracing/" rel="tag">Ray Tracing</a>, <a class="tag-none-link" href="/tags/%E6%B8%B2%E6%9F%93/" rel="tag">渲染</a>, <a class="tag-none-link" href="/tags/%E8%AB%96%E6%96%87/" rel="tag">論文</a>
+                    <a class="tag-none-link" href="/tags/Ray-Tracing/" rel="tag">Ray Tracing</a>, <a class="tag-none-link" href="/tags/%E6%B8%B2%E6%9F%93/" rel="tag">渲染</a>
                 </div>
                 <div class="pull-date">
                 <span>最后编辑：2021-11-07</span>
@@ -353,7 +352,7 @@ I=I_{\alpha}+k_d\sum_{j=1}^{j=ls}(\overline{N}\cdot\overline{L_j})+k_sS+k_tT</sc
   <aside id="krw-tags" class="widget widget-kratos-tags clearfix">
     <h4 class="widget-title"><i class="fa fa-tags"></i>标签聚合</h4>
       <div class="tag-clouds">
-        <a href="/tags/Ray-Tracing/" style="font-size: 0.6em;">Ray Tracing</a> <a href="/tags/%E6%B8%B2%E6%9F%93/" style="font-size: 0.6em;">渲染</a> <a href="/tags/%E8%AB%96%E6%96%87/" style="font-size: 0.6em;">論文</a>
+        <a href="/tags/Ray-Tracing/" style="font-size: 0.6em;">Ray Tracing</a> <a href="/tags/%E6%B8%B2%E6%9F%93/" style="font-size: 0.6em;">渲染</a>
       </div>
   </aside>
 
@@ -487,5 +486,20 @@ I=I_{\alpha}+k_d\sum_{j=1}^{j=ls}(\overline{N}\cdot\overline{L_j})+k_sS+k_tT</sc
 <!-- Extra support for third-party plguins  -->
 
 
-    </body>
+    <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
 </html>

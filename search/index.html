@@ -175,10 +175,10 @@
 <div id="result-posts">
     <div class="kratos-hentry kratos-post-inner clearfix">
         <div class="kratos-post-content">
-            <p>搜索多个关键词时请用空格分割，例如「渲染 論文 Ray Tracing」这样；</p>
+            <p>搜索多个关键词时请用空格分割，例如「渲染 Ray Tracing」这样；</p>
             <p>您也可以使用这些标签碰碰运气哦~</p>
             <p class="search-demo-tags">
-                <a href="/tags/%E6%B8%B2%E6%9F%93/" style="font-size: 18px; color: #b2b7be">渲染</a> <a href="/tags/%E8%AB%96%E6%96%87/" style="font-size: 18px; color: #b2b7be">論文</a> <a href="/tags/Ray-Tracing/" style="font-size: 18px; color: #b2b7be">Ray Tracing</a>
+                <a href="/tags/%E6%B8%B2%E6%9F%93/" style="font-size: 18px; color: #b2b7be">渲染</a> <a href="/tags/Ray-Tracing/" style="font-size: 18px; color: #b2b7be">Ray Tracing</a>
             </p>
         </div>
     </div>
@@ -221,7 +221,7 @@
   <aside id="krw-tags" class="widget widget-kratos-tags clearfix">
     <h4 class="widget-title"><i class="fa fa-tags"></i>标签聚合</h4>
       <div class="tag-clouds">
-        <a href="/tags/Ray-Tracing/" style="font-size: 0.6em;">Ray Tracing</a> <a href="/tags/%E6%B8%B2%E6%9F%93/" style="font-size: 0.6em;">渲染</a> <a href="/tags/%E8%AB%96%E6%96%87/" style="font-size: 0.6em;">論文</a>
+        <a href="/tags/Ray-Tracing/" style="font-size: 0.6em;">Ray Tracing</a> <a href="/tags/%E6%B8%B2%E6%9F%93/" style="font-size: 0.6em;">渲染</a>
       </div>
   </aside>
 
@@ -355,5 +355,20 @@
 <!-- Extra support for third-party plguins  -->
 
 
-    </body>
+    <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
 </html>
