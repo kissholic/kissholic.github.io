@@ -1,1 +1,1 @@
-[{"title":"folly 源码分析","date":"2022-02-10T16:07:02.000Z","url":"/2022/02/11/folly-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/","tags":[["源码分析","/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/"]],"categories":[["undefined",""]],"content":"folly是Facebook基于C++14设计的开源库，在Facebook内部广泛使用。虽然现在C++14显得有点落后，但folly的许多设计仍然值得我们学习。本系列博客将逐一分析folly中的模块设计，学习folly如何在易用性和性能之间做出权衡。"}]
+[]
