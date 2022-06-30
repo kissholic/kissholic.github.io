@@ -4,7 +4,7 @@
   <!-- 元数据 -->
   <meta charset="utf-8">
   <link rel="icon" href="">
-  <title>lock free linked lists using compare-and-swap | Kissholic's Blog</title>
+  <title>A Pragmatic Implementation of Non-Blocking Linked-Lists | Kissholic's Blog</title>
   <meta name="author" content="Kissholic" />
   <meta http-equiv="Cache-Control" content="no-transform" />
   <meta http-equiv="Cache-Control" content="no-siteapp" />
@@ -15,16 +15,16 @@
   
     <meta name="keywords" content="lock-free" />
   
-  <meta name="description" content="简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。 Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mu">
+  <meta name="description" content="简介本篇是lock-free链表的另一种实现形式，避免Valois版本过于复杂的缺点。 目的实现一个linearizable的lock-free链表。 算法数据结构123456789101112131415161718192021222324template&lt;typename T&gt;class Node&amp;#123;public:    Node(T v) : value(v) &amp;#123">
 <meta property="og:type" content="article">
-<meta property="og:title" content="lock free linked lists using compare-and-swap">
-<meta property="og:url" content="https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/index.html">
+<meta property="og:title" content="A Pragmatic Implementation of Non-Blocking Linked-Lists">
+<meta property="og:url" content="https://kissholic.github.io/2022/06/30/A-Pragmatic-Implementation-of-Non-Blocking-Linked-Lists/index.html">
 <meta property="og:site_name" content="Kissholic&#39;s Blog">
-<meta property="og:description" content="简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。 Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mu">
+<meta property="og:description" content="简介本篇是lock-free链表的另一种实现形式，避免Valois版本过于复杂的缺点。 目的实现一个linearizable的lock-free链表。 算法数据结构123456789101112131415161718192021222324template&lt;typename T&gt;class Node&amp;#123;public:    Node(T v) : value(v) &amp;#123">
 <meta property="og:locale">
 <meta property="og:image" content="https://kissholic.github.io/null">
-<meta property="article:published_time" content="2022-06-29T12:27:06.000Z">
-<meta property="article:modified_time" content="2022-06-30T11:21:19.737Z">
+<meta property="article:published_time" content="2022-06-30T11:18:02.000Z">
+<meta property="article:modified_time" content="2022-06-30T13:21:56.685Z">
 <meta property="article:author" content="Kissholic">
 <meta property="article:tag" content="lock-free">
 <meta name="twitter:card" content="summary">
@@ -163,17 +163,17 @@
     <div class="kratos-hentry kratos-post-inner clearfix">
         <header class="kratos-entry-header">
             
-                <h1 class="kratos-entry-title text-center">lock free linked lists using compare-and-swap</h1>
+                <h1 class="kratos-entry-title text-center">A Pragmatic Implementation of Non-Blocking Linked-Lists</h1>
             
             
             <ul class="kratos-post-meta text-center">
-                <li><i class="fa fa-calendar"></i> 2022-06-29</li>
+                <li><i class="fa fa-calendar"></i> 2022-06-30</li>
                 <li><i class="fa fa-user"></i> 作者 Kissholic</li>
                 <li>
                     <i class="fa fa-edit"></i> 
                     
                     
-                        1041
+                        1057
                     
                     字
                 </li>
@@ -182,27 +182,17 @@
         </header>
         <div class="kratos-post-content">
             <div id="expire-alert" class="alert alert-warning hidden" role="alert">
-                本文最后编辑于 <time datetime="1656588079737"></time> 前，其中的内容可能需要更新。
+                本文最后编辑于 <time datetime="1656595316685"></time> 前，其中的内容可能需要更新。
             </div>
             
             <hr />
-            <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。</p>
-<p>Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mutex反而更差。该论文第一次使用CAS实现了链表结构，并探讨了如何解决链表node回收等问题。</p>
-<h2 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h2><p>对于一个lock-free链表来说，插入一个node的过程非常直观：只需要新建一个node，将node插入指定位置即可。然而当删除一个node时，有一些情况会比较麻烦，例如node被删除时仍被其它线程访问，或者在被删除的node后插入新的node等。</p>
-<h2 id="Lock-free-Linked-List"><a href="#Lock-free-Linked-List" class="headerlink" title="Lock-free Linked List"></a>Lock-free Linked List</h2><h3 id="基础数据结构"><a href="#基础数据结构" class="headerlink" title="基础数据结构"></a>基础数据结构</h3><p>该论文设计的链表含有三种node，分别是：</p>
-<ul>
-<li>Normal node：存储实际数据的node。</li>
-<li>Auxiliary node：用于辅助增删操作的node。</li>
-<li>Dummy node：链表的第一个和最后一个node，不存储实际数据。</li>
-</ul>
-<p>当链表尚未存数据时，链表内已经含有三个节点，第一个node和最后一个node为dummy node，中间还存有一个auxiliary node，如下图所示。</p>
-<p><img src="empty_linked_list.png" alt="Empty linked list"></p>
-<h3 id="基本运算"><a href="#基本运算" class="headerlink" title="基本运算"></a>基本运算</h3><p>论文先介绍了几种lock-free程序中常用的几种函数。First函数返回链表的第一个dummy node，Last返回最后一个dummy node，Next返回Cursor指向的下一个node。</p>
-<h4 id="Update"><a href="#Update" class="headerlink" title="Update"></a>Update</h4><p>Update移除多余的auxiliary node，如下图所示。<br><img src="Update.png" alt="Update function"></p>
-<h4 id="Insert"><a href="#Insert" class="headerlink" title="Insert"></a>Insert</h4><p>Insert直接在Cursor指向的node初插入即可。<br><img src="Insert.png" alt="Insert"></p>
-<h4 id="Delete"><a href="#Delete" class="headerlink" title="Delete"></a>Delete</h4><p>Delete使用back link记录删除node的前一个node，并随后遍历并删除back link指向的node。<br><img src="Delete.png" alt="Delete"></p>
-<h3 id="Memory-Management"><a href="#Memory-Management" class="headerlink" title="Memory Management"></a>Memory Management</h3><p>本文还讨论了如何解决ABA问题，和管理空闲node。ABA问题采用计数方法解决，而空闲node回收则略微复杂一些。当分配一个node时，将从free list中申请，而当收回一个node时，则将该node放回free list中。<br><img src="Alloc.png" alt="Allocate Node"><br><img src="Reclaim.png" alt="Reclaim Node"></p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本篇论文属于lock-free领域经典论文之一，虽然它给出的实现和现在常见实现差别较大，但它增删链表node的思想仍有启发意义。</p>
+            <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>本篇是lock-free链表的另一种实现形式，避免Valois版本过于复杂的缺点。</p>
+<h2 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h2><p>实现一个linearizable的lock-free链表。</p>
+<h2 id="算法"><a href="#算法" class="headerlink" title="算法"></a>算法</h2><h3 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h3><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Node</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">Node</span>(T v) : <span class="built_in">value</span>(v) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    T value;</span><br><span class="line">    Node* next;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">List</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">List</span>()</span><br><span class="line">    &#123;</span><br><span class="line">        head = <span class="keyword">new</span> Node&lt;T&gt;();</span><br><span class="line">        tail = <span class="keyword">new</span> Node&lt;T&gt;();</span><br><span class="line">        head.next = tail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    Node&lt;T&gt;* head;</span><br><span class="line">    Node&lt;T&gt;* tail;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h3 id="运算"><a href="#运算" class="headerlink" title="运算"></a>运算</h3><p>本篇论文假设链表的元素取值递增，然而为具有普遍性，我们在代码实现中默认链表取值顺序是随机的。</p>
+<h4 id="插入"><a href="#插入" class="headerlink" title="插入"></a>插入</h4><p>插入运算通过不断循环检查是否可以插入即可。<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">List::Insert</span><span class="params">(T key)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    Node&lt;T&gt;* new_node = <span class="keyword">new</span> <span class="built_in">Node</span>(key);</span><br><span class="line">    std::atomic_ref&lt;Node&lt;T&gt;*&gt; <span class="built_in">head_next</span>(head-&gt;next);</span><br><span class="line">    Node&lt;T&gt;* first_node;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">do</span></span><br><span class="line">    &#123;</span><br><span class="line">        first_node = head-&gt;next;</span><br><span class="line">        new_node-&gt;next = first_node;</span><br><span class="line">        <span class="keyword">if</span>(new_head.<span class="built_in">compare_exchange_strong</span>(first_node, new_node))</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125; <span class="keyword">while</span> (<span class="literal">true</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h4 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h4><p>删除运算通过标记node来判断某个node是否被删除。删除操作分为两步，第一步标记node为删除状态，第二步直接删除该node。具体实现不再展示。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本篇论文给出了较简洁的lock-free链表结构，并论述其正确性。</p>
 
         </div>
         
@@ -256,7 +246,7 @@
     <script type="text/javascript">
         $(()=>{
             new QRCode("wechat-qr", {
-                text: "https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/",
+                text: "https://kissholic.github.io/2022/06/30/A-Pragmatic-Implementation-of-Non-Blocking-Linked-Lists/",
                 width: 150,
                 height: 150,
                 correctLevel : QRCode.CorrectLevel.H
@@ -268,9 +258,11 @@
             const qzoneBase     = "https://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?";
             const facebookBase  = "https://www.facebook.com/sharer/sharer.php?";
             const twitterBase   = "https://twitter.com/intent/tweet?";
-            const hostUrl       = "https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/";
-            const title         = "「lock free linked lists using compare-and-swap」";
-            const excerpt       = `简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代...`;
+            const hostUrl       = "https://kissholic.github.io/2022/06/30/A-Pragmatic-Implementation-of-Non-Blocking-Linked-Lists/";
+            const title         = "「A Pragmatic Implementation of Non-Blocking Linked-Lists」";
+            const excerpt       = `简介本篇是lock-free链表的另一种实现形式，避免Valois版本过于复杂的缺点。
+目的实现一个linearizable的lock-free链表。
+算法数据结构12345678910111213141516171819202122...`;
             let _URL;
             switch (dest) {
                 case "qq"       : _URL = qqBase+"url="+hostUrl+"&title="+title+"&desc=&summary="+excerpt+"&site=cxpy";     break;
@@ -300,10 +292,10 @@
     
         <nav class="navigation post-navigation clearfix" role="navigation">
             
-            
-            <div class="nav-next clearfix">
-                <a title=" A Pragmatic Implementation of Non-Blocking Linked-Lists" href="/2022/06/30/A-Pragmatic-Implementation-of-Non-Blocking-Linked-Lists/">下一篇 &gt;</a>
+            <div class="nav-previous clearfix">
+                <a title=" lock free linked lists using compare-and-swap" href="/2022/06/29/lock-free-linked-lists-using-compare-and-swap/">&lt; 上一篇</a>
             </div>
+            
             
         </nav>
     
