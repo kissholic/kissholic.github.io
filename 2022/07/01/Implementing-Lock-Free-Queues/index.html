@@ -4,7 +4,7 @@
   <!-- 元数据 -->
   <meta charset="utf-8">
   <link rel="icon" href="">
-  <title>lock free linked lists using compare-and-swap | Kissholic's Blog</title>
+  <title>Implementing Lock-Free Queues | Kissholic's Blog</title>
   <meta name="author" content="Kissholic" />
   <meta http-equiv="Cache-Control" content="no-transform" />
   <meta http-equiv="Cache-Control" content="no-siteapp" />
@@ -15,16 +15,16 @@
   
     <meta name="keywords" content="lock-free" />
   
-  <meta name="description" content="简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。 Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mu">
+  <meta name="description" content="简介本篇论文介绍如何实现一个lock-free队列。 目的过往的lock-free队列存在各类缺陷，比如难以线性化，或者未考虑队列为空的情况。本篇论文引入dummy node，避免了队列为空时插入node的复杂情况，另外其它一些改进使得队列达到线性化。 算法基本算法Lock-free队列的c++版本代码如下所示。1234567891011121314151617181920212223242526">
 <meta property="og:type" content="article">
-<meta property="og:title" content="lock free linked lists using compare-and-swap">
-<meta property="og:url" content="https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/index.html">
+<meta property="og:title" content="Implementing Lock-Free Queues">
+<meta property="og:url" content="https://kissholic.github.io/2022/07/01/Implementing-Lock-Free-Queues/index.html">
 <meta property="og:site_name" content="Kissholic&#39;s Blog">
-<meta property="og:description" content="简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。 Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mu">
+<meta property="og:description" content="简介本篇论文介绍如何实现一个lock-free队列。 目的过往的lock-free队列存在各类缺陷，比如难以线性化，或者未考虑队列为空的情况。本篇论文引入dummy node，避免了队列为空时插入node的复杂情况，另外其它一些改进使得队列达到线性化。 算法基本算法Lock-free队列的c++版本代码如下所示。1234567891011121314151617181920212223242526">
 <meta property="og:locale">
 <meta property="og:image" content="https://kissholic.github.io/null">
-<meta property="article:published_time" content="2022-06-29T12:27:06.000Z">
-<meta property="article:modified_time" content="2022-06-30T11:21:19.737Z">
+<meta property="article:published_time" content="2022-07-01T01:51:37.000Z">
+<meta property="article:modified_time" content="2022-07-01T08:27:20.530Z">
 <meta property="article:author" content="Kissholic">
 <meta property="article:tag" content="lock-free">
 <meta name="twitter:card" content="summary">
@@ -163,17 +163,17 @@
     <div class="kratos-hentry kratos-post-inner clearfix">
         <header class="kratos-entry-header">
             
-                <h1 class="kratos-entry-title text-center">lock free linked lists using compare-and-swap</h1>
+                <h1 class="kratos-entry-title text-center">Implementing Lock-Free Queues</h1>
             
             
             <ul class="kratos-post-meta text-center">
-                <li><i class="fa fa-calendar"></i> 2022-06-29</li>
+                <li><i class="fa fa-calendar"></i> 2022-07-01</li>
                 <li><i class="fa fa-user"></i> 作者 Kissholic</li>
                 <li>
                     <i class="fa fa-edit"></i> 
                     
                     
-                        1041
+                        ~1.94K
                     
                     字
                 </li>
@@ -182,27 +182,17 @@
         </header>
         <div class="kratos-post-content">
             <div id="expire-alert" class="alert alert-warning hidden" role="alert">
-                本文最后编辑于 <time datetime="1656588079737"></time> 前，其中的内容可能需要更新。
+                本文最后编辑于 <time datetime="1656664040530"></time> 前，其中的内容可能需要更新。
             </div>
             
             <hr />
-            <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。</p>
-<p>Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mutex反而更差。该论文第一次使用CAS实现了链表结构，并探讨了如何解决链表node回收等问题。</p>
-<h2 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h2><p>对于一个lock-free链表来说，插入一个node的过程非常直观：只需要新建一个node，将node插入指定位置即可。然而当删除一个node时，有一些情况会比较麻烦，例如node被删除时仍被其它线程访问，或者在被删除的node后插入新的node等。</p>
-<h2 id="Lock-free-Linked-List"><a href="#Lock-free-Linked-List" class="headerlink" title="Lock-free Linked List"></a>Lock-free Linked List</h2><h3 id="基础数据结构"><a href="#基础数据结构" class="headerlink" title="基础数据结构"></a>基础数据结构</h3><p>该论文设计的链表含有三种node，分别是：</p>
-<ul>
-<li>Normal node：存储实际数据的node。</li>
-<li>Auxiliary node：用于辅助增删操作的node。</li>
-<li>Dummy node：链表的第一个和最后一个node，不存储实际数据。</li>
-</ul>
-<p>当链表尚未存数据时，链表内已经含有三个节点，第一个node和最后一个node为dummy node，中间还存有一个auxiliary node，如下图所示。</p>
-<p><img src="empty_linked_list.png" alt="Empty linked list"></p>
-<h3 id="基本运算"><a href="#基本运算" class="headerlink" title="基本运算"></a>基本运算</h3><p>论文先介绍了几种lock-free程序中常用的几种函数。First函数返回链表的第一个dummy node，Last返回最后一个dummy node，Next返回Cursor指向的下一个node。</p>
-<h4 id="Update"><a href="#Update" class="headerlink" title="Update"></a>Update</h4><p>Update移除多余的auxiliary node，如下图所示。<br><img src="Update.png" alt="Update function"></p>
-<h4 id="Insert"><a href="#Insert" class="headerlink" title="Insert"></a>Insert</h4><p>Insert直接在Cursor指向的node初插入即可。<br><img src="Insert.png" alt="Insert"></p>
-<h4 id="Delete"><a href="#Delete" class="headerlink" title="Delete"></a>Delete</h4><p>Delete使用back link记录删除node的前一个node，并随后遍历并删除back link指向的node。<br><img src="Delete.png" alt="Delete"></p>
-<h3 id="Memory-Management"><a href="#Memory-Management" class="headerlink" title="Memory Management"></a>Memory Management</h3><p>本文还讨论了如何解决ABA问题，和管理空闲node。ABA问题采用计数方法解决，而空闲node回收则略微复杂一些。当分配一个node时，将从free list中申请，而当收回一个node时，则将该node放回free list中。<br><img src="Alloc.png" alt="Allocate Node"><br><img src="Reclaim.png" alt="Reclaim Node"></p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本篇论文属于lock-free领域经典论文之一，虽然它给出的实现和现在常见实现差别较大，但它增删链表node的思想仍有启发意义。</p>
+            <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>本篇论文介绍如何实现一个lock-free队列。</p>
+<h2 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h2><p>过往的lock-free队列存在各类缺陷，比如难以线性化，或者未考虑队列为空的情况。本篇论文引入dummy node，避免了队列为空时插入node的复杂情况，另外其它一些改进使得队列达到线性化。</p>
+<h2 id="算法"><a href="#算法" class="headerlink" title="算法"></a>算法</h2><h3 id="基本算法"><a href="#基本算法" class="headerlink" title="基本算法"></a>基本算法</h3><p>Lock-free队列的c++版本代码如下所示。<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;atomic&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Node</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="built_in">Node</span>(T&amp;&amp; value, Node* next) : <span class="built_in">value</span>(value), <span class="built_in">next</span>(next) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    T value;</span><br><span class="line">    std::atomic&lt;T*&gt; next;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">LockFreeQueue</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">LockFreeQueue</span>()</span><br><span class="line">    &#123;</span><br><span class="line">        head.<span class="built_in">store</span>(<span class="keyword">new</span> <span class="built_in">Node</span>(<span class="number">0</span>, <span class="literal">nullptr</span>));</span><br><span class="line">        tail.<span class="built_in">store</span>(head.<span class="built_in">load</span>());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ~<span class="built_in">LockFreeQueue</span>()</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// Release each node</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">Enqueue</span><span class="params">(T&amp;&amp; value)</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">auto</span> q = <span class="keyword">new</span> <span class="built_in">Node</span>(value, <span class="literal">nullptr</span>);</span><br><span class="line">        <span class="keyword">auto</span> p = tail.<span class="built_in">load</span>(std::memory_order_relaxed);</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">bool</span> succ = <span class="literal">false</span>; !succ;)</span><br><span class="line">        &#123;</span><br><span class="line">            p = tail.<span class="built_in">load</span>(std::memory_order_relaxed);</span><br><span class="line">            Node* expect = <span class="literal">nullptr</span>;</span><br><span class="line">            succ = tail.<span class="built_in">compare_exchange_strong</span>(expect, p);</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">not</span> succ)</span><br><span class="line">                tail.<span class="built_in">compare_exchange_strong</span>(p, p-&gt;next);</span><br><span class="line">        &#125;</span><br><span class="line">        tail.<span class="built_in">compare_exchange_strong</span>(p, q);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function">T <span class="title">Dequeue</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">auto</span> p = head.<span class="built_in">load</span>();</span><br><span class="line">        <span class="keyword">do</span> </span><br><span class="line">        &#123;</span><br><span class="line">            p = head.<span class="built_in">load</span>();</span><br><span class="line">            <span class="keyword">if</span> (p-&gt;next == <span class="literal">nullptr</span>)</span><br><span class="line">                <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;Empty queue!&quot;</span>);</span><br><span class="line">        &#125; <span class="keyword">while</span> (head.<span class="built_in">compare_exchange_strong</span>(p, p-&gt;next));</span><br><span class="line">        <span class="keyword">return</span> p-&gt;next-&gt;value;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    std::atomic&lt;Node&lt;T*&gt;&gt; head, tail;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure><br>该算法中，队列的head指向的是第一个node的前一个node（如果队列为空时，head指向一个dummy node）。</p>
+<h3 id="ABA问题"><a href="#ABA问题" class="headerlink" title="ABA问题"></a>ABA问题</h3><p>双字CAS可以解决ABA问题，但不能阻止ABA问题出现。文章作者提出了一种策略可以阻止ABA问题发生。</p>
+<p>队列的ABA问题源自node可能在出队后又进队，算法难以分辨这类node是否被再次使用。论文提出的解决方法是给每个node添加一个引用计数，当计数为0时即可回收node。这个引用计数的方法和《lock free linked lists using compare-and-swap》中使用的相同。</p>
+<h3 id="数组实现"><a href="#数组实现" class="headerlink" title="数组实现"></a>数组实现</h3><p>在一个数组上实现队列是常见的方法，所以本篇论文也探讨了他们设计的队列在数组上的实现。但是他们的方法因为内存对齐原因，暂时只在理论上有效。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>本论文提出了一种lock-free队列的实现方法。</p>
 
         </div>
         
@@ -256,7 +246,7 @@
     <script type="text/javascript">
         $(()=>{
             new QRCode("wechat-qr", {
-                text: "https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/",
+                text: "https://kissholic.github.io/2022/07/01/Implementing-Lock-Free-Queues/",
                 width: 150,
                 height: 150,
                 correctLevel : QRCode.CorrectLevel.H
@@ -268,9 +258,10 @@
             const qzoneBase     = "https://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?";
             const facebookBase  = "https://www.facebook.com/sharer/sharer.php?";
             const twitterBase   = "https://twitter.com/intent/tweet?";
-            const hostUrl       = "https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/";
-            const title         = "「lock free linked lists using compare-and-swap」";
-            const excerpt       = `简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代...`;
+            const hostUrl       = "https://kissholic.github.io/2022/07/01/Implementing-Lock-Free-Queues/";
+            const title         = "「Implementing Lock-Free Queues」";
+            const excerpt       = `简介本篇论文介绍如何实现一个lock-free队列。
+目的过往的lock-free队列存在各类缺陷，比如难以线性化，或者未考虑队列为空的情况。本篇论文引入dummy node，避免了队列为空时插入node的复杂情况，另外其它一些改进使...`;
             let _URL;
             switch (dest) {
                 case "qq"       : _URL = qqBase+"url="+hostUrl+"&title="+title+"&desc=&summary="+excerpt+"&site=cxpy";     break;
@@ -292,7 +283,7 @@
                     <a class="tag-none-link" href="/tags/lock-free/" rel="tag">lock-free</a>
                 </div>
                 <div class="pull-date">
-                <span>最后编辑：2022-06-30</span>
+                <span>最后编辑：2022-07-01</span>
                 </div>
             </div>
         </footer>
@@ -300,10 +291,10 @@
     
         <nav class="navigation post-navigation clearfix" role="navigation">
             
-            
-            <div class="nav-next clearfix">
-                <a title=" A Pragmatic Implementation of Non-Blocking Linked-Lists" href="/2022/06/30/A-Pragmatic-Implementation-of-Non-Blocking-Linked-Lists/">下一篇 &gt;</a>
+            <div class="nav-previous clearfix">
+                <a title=" A Non-Blocking Concurrent Queue Algorithm" href="/2022/06/30/A-Non-Blocking-Concurrent-Queue-Algorithm/">&lt; 上一篇</a>
             </div>
+            
             
         </nav>
     

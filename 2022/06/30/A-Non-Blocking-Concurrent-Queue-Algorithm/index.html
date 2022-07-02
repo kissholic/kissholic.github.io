@@ -4,7 +4,7 @@
   <!-- 元数据 -->
   <meta charset="utf-8">
   <link rel="icon" href="">
-  <title>lock free linked lists using compare-and-swap | Kissholic's Blog</title>
+  <title>A Non-Blocking Concurrent Queue Algorithm | Kissholic's Blog</title>
   <meta name="author" content="Kissholic" />
   <meta http-equiv="Cache-Control" content="no-transform" />
   <meta http-equiv="Cache-Control" content="no-siteapp" />
@@ -15,16 +15,16 @@
   
     <meta name="keywords" content="lock-free" />
   
-  <meta name="description" content="简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。 Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mu">
+  <meta name="description" content="简介本文介绍了一种unrolled lock-free队列结构。 目的本文设计的队列中，每个node可以存放多个值，相当于过去队列中多个node合并成一个node，提高了cache性能并减少了内存开销。 总结本文是对过去lock-free队列的改进，主要利用cache-coherent遍历一个node多个elements。">
 <meta property="og:type" content="article">
-<meta property="og:title" content="lock free linked lists using compare-and-swap">
-<meta property="og:url" content="https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/index.html">
+<meta property="og:title" content="A Non-Blocking Concurrent Queue Algorithm">
+<meta property="og:url" content="https://kissholic.github.io/2022/06/30/A-Non-Blocking-Concurrent-Queue-Algorithm/index.html">
 <meta property="og:site_name" content="Kissholic&#39;s Blog">
-<meta property="og:description" content="简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。 Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mu">
+<meta property="og:description" content="简介本文介绍了一种unrolled lock-free队列结构。 目的本文设计的队列中，每个node可以存放多个值，相当于过去队列中多个node合并成一个node，提高了cache性能并减少了内存开销。 总结本文是对过去lock-free队列的改进，主要利用cache-coherent遍历一个node多个elements。">
 <meta property="og:locale">
 <meta property="og:image" content="https://kissholic.github.io/null">
-<meta property="article:published_time" content="2022-06-29T12:27:06.000Z">
-<meta property="article:modified_time" content="2022-06-30T11:21:19.737Z">
+<meta property="article:published_time" content="2022-06-30T13:23:47.000Z">
+<meta property="article:modified_time" content="2022-07-02T01:11:23.125Z">
 <meta property="article:author" content="Kissholic">
 <meta property="article:tag" content="lock-free">
 <meta name="twitter:card" content="summary">
@@ -163,17 +163,17 @@
     <div class="kratos-hentry kratos-post-inner clearfix">
         <header class="kratos-entry-header">
             
-                <h1 class="kratos-entry-title text-center">lock free linked lists using compare-and-swap</h1>
+                <h1 class="kratos-entry-title text-center">A Non-Blocking Concurrent Queue Algorithm</h1>
             
             
             <ul class="kratos-post-meta text-center">
-                <li><i class="fa fa-calendar"></i> 2022-06-29</li>
+                <li><i class="fa fa-calendar"></i> 2022-06-30</li>
                 <li><i class="fa fa-user"></i> 作者 Kissholic</li>
                 <li>
                     <i class="fa fa-edit"></i> 
                     
                     
-                        1041
+                        163
                     
                     字
                 </li>
@@ -182,27 +182,13 @@
         </header>
         <div class="kratos-post-content">
             <div id="expire-alert" class="alert alert-warning hidden" role="alert">
-                本文最后编辑于 <time datetime="1656588079737"></time> 前，其中的内容可能需要更新。
+                本文最后编辑于 <time datetime="1656724283125"></time> 前，其中的内容可能需要更新。
             </div>
             
             <hr />
-            <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代码很容易成为性能瓶颈或者造成优先级反转之类的问题。</p>
-<p>Lock-free数据结构理论上效率更高，但当时lock-free数据结构的overhead过重，因此性能相比mutex反而更差。该论文第一次使用CAS实现了链表结构，并探讨了如何解决链表node回收等问题。</p>
-<h2 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h2><p>对于一个lock-free链表来说，插入一个node的过程非常直观：只需要新建一个node，将node插入指定位置即可。然而当删除一个node时，有一些情况会比较麻烦，例如node被删除时仍被其它线程访问，或者在被删除的node后插入新的node等。</p>
-<h2 id="Lock-free-Linked-List"><a href="#Lock-free-Linked-List" class="headerlink" title="Lock-free Linked List"></a>Lock-free Linked List</h2><h3 id="基础数据结构"><a href="#基础数据结构" class="headerlink" title="基础数据结构"></a>基础数据结构</h3><p>该论文设计的链表含有三种node，分别是：</p>
-<ul>
-<li>Normal node：存储实际数据的node。</li>
-<li>Auxiliary node：用于辅助增删操作的node。</li>
-<li>Dummy node：链表的第一个和最后一个node，不存储实际数据。</li>
-</ul>
-<p>当链表尚未存数据时，链表内已经含有三个节点，第一个node和最后一个node为dummy node，中间还存有一个auxiliary node，如下图所示。</p>
-<p><img src="empty_linked_list.png" alt="Empty linked list"></p>
-<h3 id="基本运算"><a href="#基本运算" class="headerlink" title="基本运算"></a>基本运算</h3><p>论文先介绍了几种lock-free程序中常用的几种函数。First函数返回链表的第一个dummy node，Last返回最后一个dummy node，Next返回Cursor指向的下一个node。</p>
-<h4 id="Update"><a href="#Update" class="headerlink" title="Update"></a>Update</h4><p>Update移除多余的auxiliary node，如下图所示。<br><img src="Update.png" alt="Update function"></p>
-<h4 id="Insert"><a href="#Insert" class="headerlink" title="Insert"></a>Insert</h4><p>Insert直接在Cursor指向的node初插入即可。<br><img src="Insert.png" alt="Insert"></p>
-<h4 id="Delete"><a href="#Delete" class="headerlink" title="Delete"></a>Delete</h4><p>Delete使用back link记录删除node的前一个node，并随后遍历并删除back link指向的node。<br><img src="Delete.png" alt="Delete"></p>
-<h3 id="Memory-Management"><a href="#Memory-Management" class="headerlink" title="Memory Management"></a>Memory Management</h3><p>本文还讨论了如何解决ABA问题，和管理空闲node。ABA问题采用计数方法解决，而空闲node回收则略微复杂一些。当分配一个node时，将从free list中申请，而当收回一个node时，则将该node放回free list中。<br><img src="Alloc.png" alt="Allocate Node"><br><img src="Reclaim.png" alt="Reclaim Node"></p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本篇论文属于lock-free领域经典论文之一，虽然它给出的实现和现在常见实现差别较大，但它增删链表node的思想仍有启发意义。</p>
+            <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>本文介绍了一种unrolled lock-free队列结构。</p>
+<h2 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h2><p>本文设计的队列中，每个node可以存放多个值，相当于过去队列中多个node合并成一个node，提高了cache性能并减少了内存开销。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本文是对过去lock-free队列的改进，主要利用cache-coherent遍历一个node多个elements。</p>
 
         </div>
         
@@ -256,7 +242,7 @@
     <script type="text/javascript">
         $(()=>{
             new QRCode("wechat-qr", {
-                text: "https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/",
+                text: "https://kissholic.github.io/2022/06/30/A-Non-Blocking-Concurrent-Queue-Algorithm/",
                 width: 150,
                 height: 150,
                 correctLevel : QRCode.CorrectLevel.H
@@ -268,9 +254,11 @@
             const qzoneBase     = "https://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?";
             const facebookBase  = "https://www.facebook.com/sharer/sharer.php?";
             const twitterBase   = "https://twitter.com/intent/tweet?";
-            const hostUrl       = "https://kissholic.github.io/2022/06/29/lock-free-linked-lists-using-compare-and-swap/";
-            const title         = "「lock free linked lists using compare-and-swap」";
-            const excerpt       = `简介本篇论文阐述了使用CAS实现无锁链表。在该论文发表之前，mutex互斥技术已经被广泛使用，spin locking的使用让mutex的效率进一步提升。然而mutex将会引入critical section，section内执行的代...`;
+            const hostUrl       = "https://kissholic.github.io/2022/06/30/A-Non-Blocking-Concurrent-Queue-Algorithm/";
+            const title         = "「A Non-Blocking Concurrent Queue Algorithm」";
+            const excerpt       = `简介本文介绍了一种unrolled lock-free队列结构。
+目的本文设计的队列中，每个node可以存放多个值，相当于过去队列中多个node合并成一个node，提高了cache性能并减少了内存开销。
+总结本文是对过去lock-fr...`;
             let _URL;
             switch (dest) {
                 case "qq"       : _URL = qqBase+"url="+hostUrl+"&title="+title+"&desc=&summary="+excerpt+"&site=cxpy";     break;
@@ -292,7 +280,7 @@
                     <a class="tag-none-link" href="/tags/lock-free/" rel="tag">lock-free</a>
                 </div>
                 <div class="pull-date">
-                <span>最后编辑：2022-06-30</span>
+                <span>最后编辑：2022-07-02</span>
                 </div>
             </div>
         </footer>
@@ -300,9 +288,13 @@
     
         <nav class="navigation post-navigation clearfix" role="navigation">
             
+            <div class="nav-previous clearfix">
+                <a title=" A Pragmatic Implementation of Non-Blocking Linked-Lists" href="/2022/06/30/A-Pragmatic-Implementation-of-Non-Blocking-Linked-Lists/">&lt; 上一篇</a>
+            </div>
+            
             
             <div class="nav-next clearfix">
-                <a title=" A Pragmatic Implementation of Non-Blocking Linked-Lists" href="/2022/06/30/A-Pragmatic-Implementation-of-Non-Blocking-Linked-Lists/">下一篇 &gt;</a>
+                <a title=" Implementing Lock-Free Queues" href="/2022/07/01/Implementing-Lock-Free-Queues/">下一篇 &gt;</a>
             </div>
             
         </nav>
